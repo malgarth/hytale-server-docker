@@ -90,5 +90,39 @@ fi
 
 LogInfo "Starting Hytale server..."
 
-# Start the server
-eval "$STARTUP_CMD"
+# Create a named pipe for sending commands to the server
+FIFO="/tmp/hytale_input_$$"
+mkfifo "$FIFO"
+
+# Start the server with the fifo as stdin
+eval "$STARTUP_CMD" < "$FIFO" &
+SERVER_PID=$!
+
+# Open the fifo for writing (keeps it open)
+exec 3>"$FIFO"
+
+# Monitor logs and send auth command when ready
+(
+    sleep 5
+    LOG_FILE=$(ls -t /home/hytale/server-files/logs/*_server.log 2>/dev/null | head -1)
+    if [ -n "$LOG_FILE" ]; then
+        tail -f "$LOG_FILE" | while read -r line; do
+            if echo "$line" | grep -q "Hytale Server Booted!"; then
+                sleep 2
+                echo "/auth login device" >&3
+                LogSuccess "Sent auth command to server"
+                break
+            fi
+        done
+    fi
+) &
+
+# Wait for the server process
+wait $SERVER_PID
+EXIT_CODE=$?
+
+# Cleanup
+exec 3>&-
+rm -f "$FIFO"
+
+exit $EXIT_CODE
