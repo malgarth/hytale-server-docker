@@ -4,6 +4,15 @@ source "/home/hytale/server/functions.sh"
 
 SERVER_FILES="/home/hytale/server-files"
 
+# Create persistent machine-id (required for auth persistence across restarts)
+MACHINE_ID_FILE="$SERVER_FILES/.machine-id"
+if [ ! -f "$MACHINE_ID_FILE" ]; then
+    echo "Generating persistent machine-id..."
+    uuidgen | tr -d '-' | tr '[:upper:]' '[:lower:]' > "$MACHINE_ID_FILE"
+fi
+
+cp "$MACHINE_ID_FILE" /etc/machine-id
+
 cd "$SERVER_FILES" || exit
 
 LogAction "Starting Hytale Dedicated Server"
@@ -111,6 +120,12 @@ exec 3>"$FIFO"
                 sleep 2
                 echo "/auth login device" >&3
                 LogSuccess "Sent auth command to server"
+            fi
+            
+            if echo "$line" | grep -qE "Authentication successful!|Server is already authenticated\."; then
+                sleep 1
+                echo "/auth persistence Encrypted" >&3
+                LogSuccess "Sent persistence command to server"
                 break
             fi
         done
