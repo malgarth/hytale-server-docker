@@ -25,6 +25,7 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
 
 ENV HOME=/home/hytale \
     CONFIG_DIR=/hytale-config \
+    PATH=/home/hytale/server:${PATH} \
     DEFAULT_PORT=5520 \
     SERVER_NAME=hytale-server \
     MAX_PLAYERS=20 \
