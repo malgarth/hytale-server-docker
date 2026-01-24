@@ -42,15 +42,6 @@ Log() {
 download_server() {
   LogAction "Checking server version"
   
-  # Check architecture and log if using QEMU
-  local ARCH=$(uname -m)
-  if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-    LogInfo "Running on ARM64 architecture"
-    LogInfo "x86_64 downloader will use QEMU emulation"
-  else
-    LogInfo "Running on $ARCH architecture"
-  fi
-  
   local SERVER_FILES="/home/hytale/server-files"
   local DOWNLOADER_URL="https://downloader.hytale.com/hytale-downloader.zip"
   local DOWNLOADER_ZIP="$SERVER_FILES/hytale-downloader.zip"
@@ -94,8 +85,22 @@ download_server() {
   local DOWNLOADER_BASENAME
   DOWNLOADER_BASENAME="$(basename "$DOWNLOADER_EXEC")"
   
-  # Build downloader command with patchline
+  # Determine how to run the downloader
   local DOWNLOADER_CMD="./$DOWNLOADER_BASENAME"
+  if ! ./$DOWNLOADER_BASENAME -h &>/dev/null; then
+    # Direct execution failed, try QEMU
+    if [ -x "/usr/bin/qemu-x86_64-static" ]; then
+      LogInfo "Using QEMU emulation for x86_64 binary"
+      DOWNLOADER_CMD="/usr/bin/qemu-x86_64-static ./$DOWNLOADER_BASENAME"
+    elif [ -x "/usr/bin/qemu-x86_64" ]; then
+      LogInfo "Using QEMU emulation for x86_64 binary"
+      DOWNLOADER_CMD="/usr/bin/qemu-x86_64 ./$DOWNLOADER_BASENAME"
+    else
+      LogError "Cannot execute x86_64 binary."
+      return 1
+    fi
+  fi
+  
   if [ "$PATCHLINE" != "release" ]; then
     DOWNLOADER_CMD="$DOWNLOADER_CMD -patchline $PATCHLINE"
     LogInfo "Using patchline: $PATCHLINE"
